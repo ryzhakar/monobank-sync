@@ -1,3 +1,6 @@
+use serde_with::chrono::{DateTime, Utc};
+use serde_with::TimestampSeconds;
+use serde_with::formats::Flexible;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -25,11 +28,13 @@ pub struct Jar {
     pub goal: Option<i64>,
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatementItem {
     pub id: String,
-    pub time: u32,
+    #[serde_as(as = "TimestampSeconds<i32, Flexible>")]
+    pub time: DateTime<Utc>,
     pub description: String,
     pub mcc: u32,
     pub original_mcc: u32,

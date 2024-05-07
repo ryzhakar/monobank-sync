@@ -12,7 +12,7 @@ fn main() {
     let client = Client::new();
     let tokens = config::get_multiple_monobank_tokens();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32;
-    let before: u32 = now - 24 * 60 * 31 * 2;
+    let before: u32 = now - 24 * 60 * 60 * 31 * 2;
     for token_index in 0..tokens.len() {
         let token = &tokens[token_index];
         let client_info = api::fetch_client_info(&client, &token).unwrap();
