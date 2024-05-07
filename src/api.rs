@@ -35,6 +35,7 @@ impl<'a> FetchingStatementsIterator<'a> {
             Duration::from_secs(self.wait_length_sec as u64)
             + Duration::from_millis(jitter as u64)
         };
+        tracing::debug!(seconds = sleep_time.as_secs(), "Sleeping before next request",);
         thread::sleep(sleep_time);
     }
 
@@ -62,6 +63,7 @@ impl<'a> FetchingStatementsIterator<'a> {
         let result = self.fetch_next_batch(start, end);
         match result {
             Ok(data) if data.len() == 500 => {
+                tracing::warn!("Timerange has exactly 500 statements,  retrying with smaller window");
                 let delta = end - start;
                 if delta < 2 {
                     return Ok(data)
