@@ -1,7 +1,10 @@
 mod config;
-mod models;
+mod schema;
 mod api;
 mod logger;
+mod db;
+mod crud;
+mod models;
 use reqwest::blocking::Client;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -9,6 +12,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     logger::initialize_logging();
     config::load_env();
+    let runtime = db::get_tokio_runtime();
+    let connection_pool = runtime.block_on(async {
+        db::initialize(&config::get_database_url()).await
+    });
+    let _executor = db::DBExecutor {
+        pool: connection_pool,
+        runtime,
+    };
     let client = Client::new();
     let tokens = config::get_multiple_monobank_tokens();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32;

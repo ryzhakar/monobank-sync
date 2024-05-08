@@ -1,32 +1,39 @@
 use serde_with::chrono::{DateTime, Utc};
-use sqlx;
+use serde_with::TimestampSeconds;
+use serde_with::formats::Flexible;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct ClientInfo {
-    pub client_id: String,
-    pub name: String,
-    pub token: String,
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Account {
     pub id: String,
-    pub client_id: String,
     pub send_id: String,
     pub balance: i64,
     pub credit_limit: i64,
+    #[serde(rename(deserialize = "type"))]
     pub account_type: String,
     pub currency_code: u32,
     pub cashback_type: Option<String>,
     pub iban: Option<String>,
-    pub last_sync_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Jar {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub currency_code: u32,
+    pub balance: i64,
+    pub goal: Option<i64>,
+}
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[serde_with::serde_as]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatementItem {
     pub id: String,
-    pub account_id: String,
+    #[serde_as(as = "TimestampSeconds<i32, Flexible>")]
     pub time: DateTime<Utc>,
     pub description: String,
     pub mcc: u32,
@@ -44,4 +51,13 @@ pub struct StatementItem {
     pub counter_edrpou: Option<String>,
     pub counter_iban: Option<String>,
     pub counter_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientInfo {
+    pub client_id: String,
+    pub name: String,
+    pub accounts: Vec<Account>,
+    pub jars: Vec<Jar>,
 }

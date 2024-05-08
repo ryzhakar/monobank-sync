@@ -1,4 +1,4 @@
-use crate::models::{ClientInfo, StatementItem};
+use crate::schema::{ClientInfo, StatementItem};
 use std::{thread, time::Duration};
 use reqwest::blocking::Client;
 use tracing;
