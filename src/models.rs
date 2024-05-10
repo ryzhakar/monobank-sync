@@ -1,14 +1,20 @@
 use serde_with::chrono::{DateTime, Utc};
-use sqlx;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+
+#[derive(Debug, Clone)]
+pub struct LastSync {
+    pub last_sync_at: Option<DateTime<Utc>>,
+}
+
+
+#[derive(Debug, Clone)]
 pub struct ClientInfo {
     pub client_id: String,
     pub name: String,
     pub token: String,
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone)]
 pub struct Account {
     pub id: String,
     pub client_id: String,
@@ -23,7 +29,7 @@ pub struct Account {
 }
 
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone)]
 pub struct StatementItem {
     pub id: String,
     pub account_id: String,

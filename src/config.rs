@@ -19,7 +19,9 @@ pub fn get_database_url() -> String {
 }
 
 
-pub fn get_sync_start_timestamp() -> String {
+pub fn get_sync_start_timestamp() -> u32 {
     env::var("SYNC_START_TIMESTAMP")
         .expect("SYNC_START_TIMESTAMP must be set")
+        .parse::<u32>()
+        .expect("SYNC_START_TIMESTAMP must be a number")
 }

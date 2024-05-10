@@ -75,7 +75,7 @@ impl<'a> FetchingStatementsIterator<'a> {
     }
 }
 impl<'a> Iterator for FetchingStatementsIterator<'a> {
-    type Item = Result<Vec<StatementItem>, reqwest::Error>;
+    type Item = Result<(u32, Vec<StatementItem>), (u32, reqwest::Error)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.last_success_time >= self.end_time {
@@ -86,9 +86,9 @@ impl<'a> Iterator for FetchingStatementsIterator<'a> {
         match self.try_fetch(start, end) {
             Ok(data) => {
                 self.last_success_time = std::cmp::min(end, self.end_time);
-                Some(Ok(data))
+                Some(Ok((self.last_success_time.clone(), data)))
             },
-            Err(e) => Some(Err(e))
+            Err(e) => Some(Err((self.last_success_time.clone(), e)))
         }
     }
 }
