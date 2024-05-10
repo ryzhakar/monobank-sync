@@ -1,7 +1,7 @@
-use serde_with::chrono::{DateTime, Utc};
-use serde_with::TimestampSeconds;
-use serde_with::formats::Flexible;
 use serde::Deserialize;
+use serde_with::chrono::{DateTime, Utc};
+use serde_with::formats::Flexible;
+use serde_with::TimestampSeconds;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

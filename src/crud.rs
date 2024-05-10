@@ -1,8 +1,6 @@
 use crate::models;
 use serde_with::chrono::{DateTime, Utc};
-use tracing;
 use sqlx::SqlitePool;
-
 
 pub async fn insert_client_info(
     pool: SqlitePool,
@@ -18,7 +16,8 @@ pub async fn insert_client_info(
         client_info.name,
         client_info.token,
     )
-    .execute(&pool).await;
+    .execute(&pool)
+    .await;
     if let Err(e) = result {
         Err(e)
     } else {
@@ -41,14 +40,14 @@ pub async fn update_last_sync_time(
         last_sync_at,
         account_id,
     )
-    .execute(&pool).await;
+    .execute(&pool)
+    .await;
     if let Err(e) = result {
         Err(e)
     } else {
         Ok(())
     }
 }
-
 
 pub async fn get_last_sync_time(
     pool: SqlitePool,
@@ -63,7 +62,9 @@ pub async fn get_last_sync_time(
         WHERE id = ?
         "#,
         account_id,
-    ).fetch_optional(&pool).await;
+    )
+    .fetch_optional(&pool)
+    .await;
     match result {
         Ok(Some(time_struct)) => Ok(time_struct.last_sync_at),
         Ok(None) => Ok(None),
@@ -71,11 +72,7 @@ pub async fn get_last_sync_time(
     }
 }
 
-
-pub async fn insert_account(
-    pool: SqlitePool,
-    account: models::Account,
-) -> Result<(), sqlx::Error> {
+pub async fn insert_account(pool: SqlitePool, account: models::Account) -> Result<(), sqlx::Error> {
     tracing::debug!("Trying to write account info into DB...");
     let result = sqlx::query!(
         "
@@ -104,7 +101,8 @@ pub async fn insert_account(
         account.iban,
         account.last_sync_at,
     )
-    .execute(&pool).await;
+    .execute(&pool)
+    .await;
     if let Err(e) = result {
         Err(e)
     } else {
@@ -161,7 +159,9 @@ pub async fn insert_statement_item(
         statement_item.counter_edrpou,
         statement_item.counter_iban,
         statement_item.counter_name,
-    ).execute(&pool).await;
+    )
+    .execute(&pool)
+    .await;
     if let Err(e) = result {
         Err(e)
     } else {

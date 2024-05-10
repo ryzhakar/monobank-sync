@@ -1,11 +1,9 @@
 use serde_with::chrono::{DateTime, Utc};
 
-
 #[derive(Debug, Clone)]
 pub struct LastSync {
     pub last_sync_at: Option<DateTime<Utc>>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ClientInfo {
@@ -27,7 +25,6 @@ pub struct Account {
     pub iban: Option<String>,
     pub last_sync_at: Option<DateTime<Utc>>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct StatementItem {

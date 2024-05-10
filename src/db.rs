@@ -1,15 +1,16 @@
 use sqlx::SqlitePool;
 use tokio::runtime::{Builder, Runtime};
 
-
 pub async fn initialize(database_url: &str) -> SqlitePool {
     let pool = SqlitePool::connect(database_url)
-        .await.expect("Failed to connect to database");
-    sqlx::migrate!("./migrations").run(&pool)
-        .await.expect("Failed to migrate database");
+        .await
+        .expect("Failed to connect to database");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to migrate database");
     pool
 }
-
 
 pub fn get_tokio_runtime() -> Runtime {
     Builder::new_multi_thread()
@@ -17,7 +18,6 @@ pub fn get_tokio_runtime() -> Runtime {
         .build()
         .expect("Failed to create tokio runtime")
 }
-
 
 pub struct DBExecutor {
     pub pool: SqlitePool,

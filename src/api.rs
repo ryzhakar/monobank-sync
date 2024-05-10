@@ -1,11 +1,10 @@
 use crate::schema::{ClientInfo, StatementItem};
-use std::{thread, time::Duration};
-use reqwest::blocking::Client;
-use tracing;
 use rand::Rng;
+use reqwest::blocking::Client;
+use std::{thread, time::Duration};
 
 const MONOBANK_API_URL: &str = "https://api.monobank.ua/personal";
-const MAX_TIME_DIFF_SEC: u32 = 31 * 24 * 60 * 60;  // 31 days
+const MAX_TIME_DIFF_SEC: u32 = 31 * 24 * 60 * 60; // 31 days
 pub const WAIT_TIME_SEC: u32 = 60;
 pub const WAIT_JITTER_SEC: u32 = 5;
 
@@ -21,56 +20,43 @@ pub struct FetchingStatementsIterator<'a> {
 }
 
 impl<'a> FetchingStatementsIterator<'a> {
-
     fn calculate_next_window(&self) -> (u32, u32) {
         let start = self.last_success_time + 1;
         let end = std::cmp::min(start + MAX_TIME_DIFF_SEC, self.end_time);
         (start, end)
     }
 
-
     fn sleep_with_jitter(&self) {
-        let jitter = rand::thread_rng().gen_range(0..self.wait_jitter_sec*1000);
+        let jitter = rand::thread_rng().gen_range(0..self.wait_jitter_sec * 1000);
         let sleep_time = {
-            Duration::from_secs(self.wait_length_sec as u64)
-            + Duration::from_millis(jitter as u64)
+            Duration::from_secs(self.wait_length_sec as u64) + Duration::from_millis(jitter as u64)
         };
-        tracing::debug!(seconds = sleep_time.as_secs(), "Sleeping before next request",);
+        tracing::debug!(
+            seconds = sleep_time.as_secs(),
+            "Sleeping before next request",
+        );
         thread::sleep(sleep_time);
     }
 
-
-    fn fetch_next_batch(
-        &self,
-        start: u32,
-        end: u32,
-    ) -> Result<Vec<StatementItem>, reqwest::Error> {
+    fn fetch_next_batch(&self, start: u32, end: u32) -> Result<Vec<StatementItem>, reqwest::Error> {
         self.sleep_with_jitter();
-        fetch_statements(
-            self.client,
-            &self.account_id,
-            start,
-            end,
-            &self.token
-        )
+        fetch_statements(self.client, &self.account_id, start, end, &self.token)
     }
 
-    fn try_fetch(
-        &self,
-        start: u32,
-        end: u32,
-    ) -> Result<Vec<StatementItem>, reqwest::Error> {
+    fn try_fetch(&self, start: u32, end: u32) -> Result<Vec<StatementItem>, reqwest::Error> {
         let result = self.fetch_next_batch(start, end);
         match result {
             Ok(data) if data.len() == 500 => {
-                tracing::warn!("Timerange has exactly 500 statements,  retrying with smaller window");
+                tracing::warn!(
+                    "Timerange has exactly 500 statements,  retrying with smaller window"
+                );
                 let delta = end - start;
                 if delta < 2 {
-                    return Ok(data)
+                    return Ok(data);
                 };
                 self.try_fetch(start, start + delta / 2)
-            },
-            _ => result
+            }
+            _ => result,
         }
     }
 }
@@ -79,33 +65,28 @@ impl<'a> Iterator for FetchingStatementsIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.last_success_time >= self.end_time {
-            return None
+            return None;
         }
 
         let (start, end) = self.calculate_next_window();
         match self.try_fetch(start, end) {
             Ok(data) => {
                 self.last_success_time = std::cmp::min(end, self.end_time);
-                Some(Ok((self.last_success_time.clone(), data)))
-            },
-            Err(e) => Some(Err((self.last_success_time.clone(), e)))
+                Some(Ok((self.last_success_time, data)))
+            }
+            Err(e) => Some(Err((self.last_success_time, e))),
         }
     }
 }
 
-
-pub fn fetch_client_info(
-    client: &Client,
-    token: &str,
-) -> Result<ClientInfo, reqwest::Error> {
+pub fn fetch_client_info(client: &Client, token: &str) -> Result<ClientInfo, reqwest::Error> {
     let url = format!("{}/client-info", MONOBANK_API_URL);
-    tracing::info!(token=token, "Getting client data...");
+    tracing::info!(token = token, "Getting client data...");
     let response = client.get(url).header("X-Token", token).send()?;
     tracing::debug!("Deserializing client data...");
     let client_info = response.json::<ClientInfo>()?;
     Ok(client_info)
 }
-
 
 pub fn fetch_statements(
     client: &Client,
@@ -116,10 +97,7 @@ pub fn fetch_statements(
 ) -> Result<Vec<StatementItem>, reqwest::Error> {
     let url = format!(
         "{}/statement/{}/{}/{}",
-        MONOBANK_API_URL,
-        resource_id,
-        from,
-        to,
+        MONOBANK_API_URL, resource_id, from, to,
     );
     tracing::info!(
         from_time = from,
@@ -128,7 +106,7 @@ pub fn fetch_statements(
         token = token,
         "Getting statements...",
     );
-    let response = client.get(&url).header("X-Token", token).send()?;
+    let response = client.get(url).header("X-Token", token).send()?;
     tracing::debug!("Deserializing statements...");
     let statement_items = response.json::<Vec<StatementItem>>()?;
     Ok(statement_items)
