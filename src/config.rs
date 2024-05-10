@@ -13,6 +13,14 @@ pub fn get_multiple_monobank_tokens() -> Vec<String> {
         .collect()
 }
 
+pub fn get_all_allowed_card_types() -> Vec<String> {
+    let raw_types = env::var("ALLOWED_CARD_TYPES").expect("ALLOWED_CARD_TYPES must be set");
+    raw_types
+        .split(',')
+        .map(|section| section.to_string())
+        .collect()
+}
+
 pub fn get_database_url() -> String {
     env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }

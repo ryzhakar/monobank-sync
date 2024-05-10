@@ -38,7 +38,14 @@ fn main() {
         };
         let client_info_clone = client_info.clone();
         let _ = executor.execute(move |p| crud::insert_client_info(p.clone(), client_info_clone));
-        for raw_account in raw_client_info.accounts {
+        let relevant_accounts = raw_client_info
+            .accounts
+            .clone()
+            .iter()
+            .filter(|&ac| config::get_all_allowed_card_types().contains(&ac.account_type))
+            .cloned()
+            .collect::<Vec<schema::Account>>();
+        for raw_account in relevant_accounts {
             let account_id = raw_account.id.clone();
             let maybe_success_time = executor
                 .execute(move |p| crud::get_last_sync_time(p.clone(), account_id))
