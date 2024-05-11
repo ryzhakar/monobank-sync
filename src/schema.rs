@@ -59,5 +59,5 @@ pub struct ClientInfo {
     pub client_id: String,
     pub name: String,
     pub accounts: Vec<Account>,
-    pub jars: Vec<Jar>,
+    jars: Option<Vec<Jar>>,
 }
