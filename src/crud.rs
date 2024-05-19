@@ -1,5 +1,5 @@
 use crate::models;
-use serde_with::chrono::{DateTime, Utc};
+use serde_with::chrono::NaiveDateTime;
 use sqlx::SqlitePool;
 
 pub async fn insert_client_info(
@@ -28,7 +28,7 @@ pub async fn insert_client_info(
 pub async fn update_last_sync_time(
     pool: SqlitePool,
     account_id: String,
-    last_sync_at: Option<DateTime<Utc>>,
+    last_sync_at: Option<NaiveDateTime>,
 ) -> Result<(), sqlx::Error> {
     tracing::debug!("Attempting to update an account...");
     let result = sqlx::query!(
@@ -52,12 +52,12 @@ pub async fn update_last_sync_time(
 pub async fn get_last_sync_time(
     pool: SqlitePool,
     account_id: String,
-) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+) -> Result<Option<NaiveDateTime>, sqlx::Error> {
     tracing::debug!("Retrieving last sync time from DB...");
     let result = sqlx::query_as!(
         models::LastSync,
         r#"
-        SELECT last_sync_at as "last_sync_at: DateTime<Utc>"
+        SELECT last_sync_at as "last_sync_at: NaiveDateTime"
         FROM accounts
         WHERE id = ?
         "#,

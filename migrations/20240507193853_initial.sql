@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     currency_code INTEGER NOT NULL,
     cashback_type TEXT,
     iban TEXT,
-    last_sync_at TIMESTAMP WITH TIME ZONE,
+    last_sync_at TIMESTAMP WITHOUT TIME ZONE,
     client_id TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES client_info(client_id)
 );
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS statement_items (
     id TEXT PRIMARY KEY,
     account_id TEXT NOT NULL,
-    time TIMESTAMP WITH TIME ZONE NOT NULL,
+    time TIMESTAMP NOT NULL,
     description TEXT NOT NULL,
     mcc INTEGER NOT NULL,
     original_mcc INTEGER NOT NULL,

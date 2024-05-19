@@ -7,14 +7,13 @@ mod models;
 mod schema;
 mod utils;
 use reqwest::blocking::Client;
-use serde_with::chrono::{DateTime, Utc};
+use serde_with::chrono::NaiveDateTime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
     logger::initialize_logging();
     config::load_env();
-    let time_floor =
-        utils::datetime_from(config::get_sync_start_timestamp()).expect("Failed to parse time");
+    let time_floor = utils::datetime_from(config::get_sync_start_timestamp());
     let runtime = db::get_tokio_runtime();
     let connection_pool =
         runtime.block_on(async { db::initialize(&config::get_database_url()).await });
@@ -50,7 +49,7 @@ fn main() {
             let maybe_success_time = executor
                 .execute(move |p| crud::get_last_sync_time(p.clone(), account_id))
                 .expect("Failed to get last sync time");
-            let last_sync_time: DateTime<Utc>;
+            let last_sync_time: NaiveDateTime;
             if let Some(lst) = maybe_success_time {
                 last_sync_time = lst;
             } else {
@@ -74,7 +73,7 @@ fn main() {
                 client: &client,
                 token: token.to_string(),
                 account_id: account.id.clone(),
-                last_success_time: (last_sync_time.timestamp() - 1) as u32,
+                last_success_time: (last_sync_time.and_utc().timestamp() - 1) as u32,
                 end_time: now,
                 wait_length_sec: api::WAIT_TIME_SEC,
                 wait_jitter_sec: api::WAIT_JITTER_SEC,
@@ -87,7 +86,7 @@ fn main() {
                         let last_success = utils::datetime_from(timestamp);
                         let account_id = account.id.clone();
                         let _ = executor.execute(move |p| {
-                            crud::update_last_sync_time(p.clone(), account_id, last_success)
+                            crud::update_last_sync_time(p.clone(), account_id, Some(last_success))
                         });
                     }
                     Err((timestamp, e)) => {
@@ -95,7 +94,7 @@ fn main() {
                         let last_success = utils::datetime_from(timestamp);
                         let account_id = account.id.clone();
                         let _ = executor.execute(move |p| {
-                            crud::update_last_sync_time(p.clone(), account_id, last_success)
+                            crud::update_last_sync_time(p.clone(), account_id, Some(last_success))
                         });
                         break;
                     }
@@ -105,7 +104,7 @@ fn main() {
                     .map(|s| models::StatementItem {
                         id: s.id,
                         account_id: account.id.clone(),
-                        time: s.time,
+                        time: s.time.naive_utc(),
                         description: s.description,
                         mcc: s.mcc,
                         original_mcc: s.original_mcc,

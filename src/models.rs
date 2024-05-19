@@ -1,8 +1,8 @@
-use serde_with::chrono::{DateTime, Utc};
+use serde_with::chrono::NaiveDateTime;
 
 #[derive(Debug, Clone)]
 pub struct LastSync {
-    pub last_sync_at: Option<DateTime<Utc>>,
+    pub last_sync_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
@@ -23,14 +23,14 @@ pub struct Account {
     pub currency_code: u32,
     pub cashback_type: Option<String>,
     pub iban: Option<String>,
-    pub last_sync_at: Option<DateTime<Utc>>,
+    pub last_sync_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StatementItem {
     pub id: String,
     pub account_id: String,
-    pub time: DateTime<Utc>,
+    pub time: NaiveDateTime,
     pub description: String,
     pub mcc: u32,
     pub original_mcc: u32,
