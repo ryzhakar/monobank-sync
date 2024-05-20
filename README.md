@@ -1,9 +1,10 @@
-# Monobank Sync Tool README
+# monobank sync tool
 
 ## Overview
-This tool synchronizes data from Monobank APIs into a local SQLite database.
-Sync is pretty slow due to rate-limiting, but acceptable for a cron task.
-Expect spending `months * cards * tokens + tokens` minutes on each run.
+This tool synchronizes data from Monobanks Personal API into a local SQLite database.
+Meant as a companion app for [monobank-report](https://github.com/ryzhakar/monobank-report) tool, which ... should make useful reports based on this data.
+
+Sync is pretty slow due to rate-limiting, but acceptable for a cron task. Expect spending `months * cards * tokens + tokens` minutes on each run.
 
 ## Configuration and Operation
 Configure the tool by setting the necessary environment variables in the `.env` file at the project's root:
