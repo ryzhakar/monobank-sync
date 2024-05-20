@@ -1,7 +1,9 @@
 # Monobank Sync Tool README
 
 ## Overview
-This tool synchronizes data from Monobank APIs into a local database. It handles multiple accounts and efficiently manages transaction statements retrieval within user-defined time intervals.
+This tool synchronizes data from Monobank APIs into a local SQLite database.
+Sync is pretty slow due to rate-limiting, but acceptable for a cron task.
+Expect spending `months * cards * tokens + tokens` minutes on each run.
 
 ## Configuration and Operation
 Configure the tool by setting the necessary environment variables in the `.env` file at the project's root:
@@ -11,8 +13,16 @@ Configure the tool by setting the necessary environment variables in the `.env` 
 - `ALLOWED_CARD_TYPES`: Filter transactions by card types, comma-separated.
 - `SYNC_START_TIMESTAMP`: Initial sync date; defaults to the start of the current month if unspecified.
 
-### Quirks and Rate Limiting
-The synchronization process involves iterating over accounts and fetching transaction statements using a custom iterator that respects Monobank's API rate limits. The iterator employs a sleep strategy with jitter (`WAIT_TIME_SEC` and `WAIT_JITTER_SEC`) to avoid hitting these limits, adjusting the delay dynamically based on the server's response. If a batch fetch returns exactly the maximum number of allowed records, the iterator reduces the time window for subsequent requests to ensure no data is missed due to pagination limits.
+## Quirks and Rate Limiting
+- **Single request per minute**: monobanks personal api is rate-limited.
+- **Which is not even an exact minute**: loading the whole dataset one batch per minute is discouraged by monobank. We use jitter to avoid some arbitrary blocking.
+- **Waiting is very naive**: time for data processing and storage is negligable, so we don't subtract it.
+- **Using synchronous requests**: can't remember the reason, but I swear I had one.
+- **No webhook integration**: not using it has no practical effect in this case.
+- **No jars**: don't need them yet. You're welcome to implement them if you want.
 
-## Issues
-Ensure that the `.env` variables are correctly configured and that the specified database is accessible. Check network settings and API token validity if connection issues occur.
+## TODO
+- Update account data on each run
+- Don't request client info after initial request
+- Manage tokens based on hashes instead of storing them.
+- Handle the 'older-then-account-creation' API errors.
