@@ -31,7 +31,9 @@ pub fn get_sync_start_timestamp() -> u32 {
     match raw_timestamp {
         Err(_) => {
             let now = Utc::now();
-            let this_month = Utc.ymd(now.year(), now.month(), 1).and_hms(0, 0, 0);
+            let this_month = Utc
+                .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+                .unwrap();
             this_month.timestamp() as u32
         }
         Ok(string_timestamp) => string_timestamp

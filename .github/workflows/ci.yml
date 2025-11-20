@@ -1,0 +1,190 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Test with SQLite (default)
+  test-sqlite:
+    runs-on: ubuntu-latest
+
+    services:
+      sqlite:
+        image: nouchka/sqlite3:latest
+        options: >-
+          --health-cmd "sqlite3 --version"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+    - name: Clippy (SQLite)
+      run: cargo clippy --features online -- -D warnings
+
+    - name: Build (SQLite + online)
+      run: cargo build --features online
+
+    - name: Generate SQLx offline data
+      run: cargo sqlx prepare --workspace
+
+    - name: Build (SQLite + offline)
+      run: cargo build --features offline
+
+    - name: Run tests (SQLite + offline)
+      run: cargo test --features offline
+
+  # Test with PostgreSQL
+  test-postgres:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Wait for PostgreSQL
+      run: |
+        until pg_isready -h localhost -p 5432; do
+          sleep 1
+        done
+
+    - name: Setup test database
+      run: |
+        psql -h localhost -U postgres -d test_db -c "
+          CREATE TABLE IF NOT EXISTS client_info (
+            client_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            token TEXT NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            send_id TEXT NOT NULL,
+            balance BIGINT NOT NULL,
+            credit_limit BIGINT NOT NULL,
+            account_type TEXT NOT NULL,
+            currency_code INTEGER NOT NULL,
+            cashback_type TEXT,
+            iban TEXT,
+            last_sync_at TIMESTAMP WITHOUT TIME ZONE,
+            client_id TEXT NOT NULL,
+            FOREIGN KEY (client_id) REFERENCES client_info(client_id)
+          );
+        "
+
+    - name: Clippy (PostgreSQL)
+      run: cargo clippy --features postgres,online -- -D warnings
+
+    - name: Build (PostgreSQL + online)
+      run: cargo build --features postgres,online
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Generate SQLx offline data (PostgreSQL)
+      run: cargo sqlx prepare --workspace
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Build (PostgreSQL + offline)
+      run: cargo build --features postgres,offline
+
+    - name: Run tests (PostgreSQL + offline)
+      run: cargo test --features postgres,offline
+
+  # Build for different targets
+  build-release:
+    runs-on: ubuntu-latest
+    needs: [test-sqlite, test-postgres]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Copy SQLx offline data
+      run: |
+        mkdir -p .sqlx
+        cp -r .sqlx/* .sqlx/ 2>/dev/null || echo "No offline data found"
+
+    - name: Build release (SQLite)
+      run: cargo build --release --features offline
+
+    - name: Build release (PostgreSQL)
+      run: cargo build --release --features postgres,offline
+
+  # Publish to crates.io
+  publish:
+    runs-on: ubuntu-latest
+    needs: build-release
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip publish]')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Copy SQLx offline data
+      run: |
+        mkdir -p .sqlx
+        cp -r .sqlx/* .sqlx/ 2>/dev/null || echo "No offline data found"
+
+    - name: Build for publishing
+      run: cargo build --release --features offline
+
+    - name: Publish to crates.io
+      run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+

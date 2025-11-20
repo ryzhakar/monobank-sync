@@ -80,7 +80,7 @@ impl<'a> Iterator for FetchingStatementsIterator<'a> {
 }
 
 pub fn fetch_client_info(client: &Client, token: &str) -> Result<ClientInfo, reqwest::Error> {
-    let url = format!("{}/client-info", MONOBANK_API_URL);
+    let url = format!("{MONOBANK_API_URL}/client-info");
     tracing::info!(token = token, "Getting client data...");
     let response = client.get(url).header("X-Token", token).send()?;
     tracing::debug!("Deserializing client data...");
@@ -95,10 +95,7 @@ pub fn fetch_statements(
     to: u32,
     token: &str,
 ) -> Result<Vec<StatementItem>, reqwest::Error> {
-    let url = format!(
-        "{}/statement/{}/{}/{}",
-        MONOBANK_API_URL, resource_id, from, to,
-    );
+    let url = format!("{MONOBANK_API_URL}/statement/{resource_id}/{from}/{to}");
     tracing::info!(
         from_time = from,
         to_time = to,

@@ -1,70 +1,136 @@
+use crate::db_types::DatabasePool;
 use crate::models;
 use serde_with::chrono::NaiveDateTime;
-use sqlx::SqlitePool;
 
 pub async fn insert_client_info(
-    pool: SqlitePool,
+    pool: &DatabasePool,
     client_info: models::ClientInfo,
 ) -> Result<(), sqlx::Error> {
     tracing::debug!("Trying to write client info into DB...");
+
+    #[cfg(all(feature = "sqlite", feature = "online"))]
     let result = sqlx::query!(
-        "
-        INSERT OR IGNORE INTO client_info (client_id, name, token)
-        VALUES (?, ?, ?)
-        ",
+        "INSERT OR IGNORE INTO client_info (client_id, name, token) VALUES (?, ?, ?)",
         client_info.client_id,
         client_info.name,
         client_info.token,
     )
-    .execute(&pool)
+    .execute(pool)
     .await;
-    if let Err(e) = result {
-        Err(e)
-    } else {
-        Ok(())
-    }
+
+    #[cfg(all(feature = "postgres", feature = "online"))]
+    let result = sqlx::query!(
+        "INSERT INTO client_info (client_id, name, token) VALUES ($1, $2, $3) ON CONFLICT (client_id) DO NOTHING",
+        client_info.client_id,
+        client_info.name,
+        client_info.token,
+    )
+    .execute(pool)
+    .await;
+
+    #[cfg(all(feature = "sqlite", feature = "offline"))]
+    let result = sqlx::query("INSERT OR IGNORE INTO client_info (client_id, name, token) VALUES (?, ?, ?)")
+        .bind(&client_info.client_id)
+        .bind(&client_info.name)
+        .bind(&client_info.token)
+        .execute(pool)
+        .await;
+
+    #[cfg(all(feature = "postgres", feature = "offline"))]
+    let result = sqlx::query("INSERT INTO client_info (client_id, name, token) VALUES ($1, $2, $3) ON CONFLICT (client_id) DO NOTHING")
+        .bind(&client_info.client_id)
+        .bind(&client_info.name)
+        .bind(&client_info.token)
+        .execute(pool)
+        .await;
+
+    result.map(|_| ())
 }
 
 pub async fn update_last_sync_time(
-    pool: SqlitePool,
+    pool: &DatabasePool,
     account_id: String,
     last_sync_at: Option<NaiveDateTime>,
 ) -> Result<(), sqlx::Error> {
     tracing::debug!("Attempting to update an account...");
+
+    #[cfg(all(feature = "sqlite", feature = "online"))]
     let result = sqlx::query!(
-        "
-        UPDATE accounts
-        SET last_sync_at = ?
-        WHERE id = ?
-        ",
+        "UPDATE accounts SET last_sync_at = ? WHERE id = ?",
         last_sync_at,
         account_id,
     )
-    .execute(&pool)
+    .execute(pool)
     .await;
-    if let Err(e) = result {
-        Err(e)
-    } else {
-        Ok(())
-    }
+
+    #[cfg(all(feature = "postgres", feature = "online"))]
+    let result = sqlx::query!(
+        "UPDATE accounts SET last_sync_at = $1 WHERE id = $2",
+        last_sync_at,
+        account_id,
+    )
+    .execute(pool)
+    .await;
+
+    #[cfg(all(feature = "sqlite", feature = "offline"))]
+    let result = sqlx::query("UPDATE accounts SET last_sync_at = ? WHERE id = ?")
+        .bind(last_sync_at)
+        .bind(&account_id)
+        .execute(pool)
+        .await;
+
+    #[cfg(all(feature = "postgres", feature = "offline"))]
+    let result = sqlx::query("UPDATE accounts SET last_sync_at = $1 WHERE id = $2")
+        .bind(last_sync_at)
+        .bind(&account_id)
+        .execute(pool)
+        .await;
+
+    result.map(|_| ())
 }
 
 pub async fn get_last_sync_time(
-    pool: SqlitePool,
+    pool: &DatabasePool,
     account_id: String,
 ) -> Result<Option<NaiveDateTime>, sqlx::Error> {
     tracing::debug!("Retrieving last sync time from DB...");
+
+    #[cfg(all(feature = "sqlite", feature = "online"))]
     let result = sqlx::query_as!(
         models::LastSync,
-        r#"
-        SELECT last_sync_at as "last_sync_at: NaiveDateTime"
-        FROM accounts
-        WHERE id = ?
-        "#,
-        account_id,
+        r#"SELECT last_sync_at as "last_sync_at: _" FROM accounts WHERE id = ?"#,
+        account_id
     )
-    .fetch_optional(&pool)
+    .fetch_optional(pool)
     .await;
+
+    #[cfg(all(feature = "postgres", feature = "online"))]
+    let result = sqlx::query_as!(
+        models::LastSync,
+        r#"SELECT last_sync_at as "last_sync_at: _" FROM accounts WHERE id = $1"#,
+        account_id
+    )
+    .fetch_optional(pool)
+    .await;
+
+    #[cfg(all(feature = "sqlite", feature = "offline"))]
+    let result = sqlx::query_scalar::<_, Option<NaiveDateTime>>(
+        "SELECT last_sync_at FROM accounts WHERE id = ?"
+    )
+    .bind(&account_id)
+    .fetch_optional(pool)
+    .await
+    .map(|opt| opt.map(|last_sync_at| models::LastSync { last_sync_at }));
+
+    #[cfg(all(feature = "postgres", feature = "offline"))]
+    let result = sqlx::query_scalar::<_, Option<NaiveDateTime>>(
+        "SELECT last_sync_at FROM accounts WHERE id = $1"
+    )
+    .bind(&account_id)
+    .fetch_optional(pool)
+    .await
+    .map(|opt| opt.map(|last_sync_at| models::LastSync { last_sync_at }));
+
     match result {
         Ok(Some(time_struct)) => Ok(time_struct.last_sync_at),
         Ok(None) => Ok(None),
@@ -72,24 +138,12 @@ pub async fn get_last_sync_time(
     }
 }
 
-pub async fn insert_account(pool: SqlitePool, account: models::Account) -> Result<(), sqlx::Error> {
+pub async fn insert_account(pool: &DatabasePool, account: models::Account) -> Result<(), sqlx::Error> {
     tracing::debug!("Trying to write account info into DB...");
+
+    #[cfg(all(feature = "sqlite", feature = "online"))]
     let result = sqlx::query!(
-        "
-        INSERT OR IGNORE INTO accounts (
-            id,
-            client_id,
-            send_id,
-            balance,
-            credit_limit,
-            account_type,
-            currency_code,
-            cashback_type,
-            iban,
-            last_sync_at
-        )
-        VALUES (?,?,?,?,?,?,?,?,?,?)
-        ",
+        "INSERT OR IGNORE INTO accounts (id, client_id, send_id, balance, credit_limit, account_type, currency_code, cashback_type, iban, last_sync_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         account.id,
         account.client_id,
         account.send_id,
@@ -101,45 +155,68 @@ pub async fn insert_account(pool: SqlitePool, account: models::Account) -> Resul
         account.iban,
         account.last_sync_at,
     )
-    .execute(&pool)
+    .execute(pool)
     .await;
-    if let Err(e) = result {
-        Err(e)
-    } else {
-        Ok(())
-    }
+
+    #[cfg(all(feature = "postgres", feature = "online"))]
+    let result = sqlx::query!(
+        "INSERT INTO accounts (id, client_id, send_id, balance, credit_limit, account_type, currency_code, cashback_type, iban, last_sync_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING",
+        account.id,
+        account.client_id,
+        account.send_id,
+        account.balance,
+        account.credit_limit,
+        account.account_type,
+        account.currency_code as i32,
+        account.cashback_type,
+        account.iban,
+        account.last_sync_at,
+    )
+    .execute(pool)
+    .await;
+
+    #[cfg(all(feature = "sqlite", feature = "offline"))]
+    let result = sqlx::query("INSERT OR IGNORE INTO accounts (id, client_id, send_id, balance, credit_limit, account_type, currency_code, cashback_type, iban, last_sync_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(&account.id)
+        .bind(&account.client_id)
+        .bind(&account.send_id)
+        .bind(account.balance)
+        .bind(account.credit_limit)
+        .bind(&account.account_type)
+        .bind(account.currency_code)
+        .bind(&account.cashback_type)
+        .bind(&account.iban)
+        .bind(account.last_sync_at)
+        .execute(pool)
+        .await;
+
+    #[cfg(all(feature = "postgres", feature = "offline"))]
+    let result = sqlx::query("INSERT INTO accounts (id, client_id, send_id, balance, credit_limit, account_type, currency_code, cashback_type, iban, last_sync_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING")
+        .bind(&account.id)
+        .bind(&account.client_id)
+        .bind(&account.send_id)
+        .bind(account.balance)
+        .bind(account.credit_limit)
+        .bind(&account.account_type)
+        .bind(account.currency_code as i32)
+        .bind(&account.cashback_type)
+        .bind(&account.iban)
+        .bind(account.last_sync_at)
+        .execute(pool)
+        .await;
+
+    result.map(|_| ())
 }
 
 pub async fn insert_statement_item(
-    pool: SqlitePool,
+    pool: &DatabasePool,
     statement_item: models::StatementItem,
 ) -> Result<(), sqlx::Error> {
     tracing::debug!("Trying to write statement item...");
+
+    #[cfg(all(feature = "sqlite", feature = "online"))]
     let result = sqlx::query!(
-        "
-        INSERT OR IGNORE INTO statement_items (
-            id,
-            account_id,
-            time,
-            description,
-            mcc,
-            original_mcc,
-            hold,
-            amount,
-            operation_amount,
-            currency_code,
-            commission_rate,
-            cashback_amount,
-            balance,
-            comment,
-            receipt_id,
-            invoice_id,
-            counter_edrpou,
-            counter_iban,
-            counter_name
-        )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ",
+        "INSERT OR IGNORE INTO statement_items (id, account_id, time, description, mcc, original_mcc, hold, amount, operation_amount, currency_code, commission_rate, cashback_amount, balance, comment, receipt_id, invoice_id, counter_edrpou, counter_iban, counter_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         statement_item.id,
         statement_item.account_id,
         statement_item.time,
@@ -160,11 +237,82 @@ pub async fn insert_statement_item(
         statement_item.counter_iban,
         statement_item.counter_name,
     )
-    .execute(&pool)
+    .execute(pool)
     .await;
-    if let Err(e) = result {
-        Err(e)
-    } else {
-        Ok(())
-    }
+
+    #[cfg(all(feature = "postgres", feature = "online"))]
+    let result = sqlx::query!(
+        "INSERT INTO statement_items (id, account_id, time, description, mcc, original_mcc, hold, amount, operation_amount, currency_code, commission_rate, cashback_amount, balance, comment, receipt_id, invoice_id, counter_edrpou, counter_iban, counter_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) ON CONFLICT (id) DO NOTHING",
+        statement_item.id,
+        statement_item.account_id,
+        statement_item.time,
+        statement_item.description,
+        statement_item.mcc as i32,
+        statement_item.original_mcc as i32,
+        statement_item.hold,
+        statement_item.amount,
+        statement_item.operation_amount,
+        statement_item.currency_code as i32,
+        statement_item.commission_rate,
+        statement_item.cashback_amount,
+        statement_item.balance,
+        statement_item.comment,
+        statement_item.receipt_id,
+        statement_item.invoice_id,
+        statement_item.counter_edrpou,
+        statement_item.counter_iban,
+        statement_item.counter_name,
+    )
+    .execute(pool)
+    .await;
+
+    #[cfg(all(feature = "sqlite", feature = "offline"))]
+    let result = sqlx::query("INSERT OR IGNORE INTO statement_items (id, account_id, time, description, mcc, original_mcc, hold, amount, operation_amount, currency_code, commission_rate, cashback_amount, balance, comment, receipt_id, invoice_id, counter_edrpou, counter_iban, counter_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(&statement_item.id)
+        .bind(&statement_item.account_id)
+        .bind(statement_item.time)
+        .bind(&statement_item.description)
+        .bind(statement_item.mcc)
+        .bind(statement_item.original_mcc)
+        .bind(statement_item.hold)
+        .bind(statement_item.amount)
+        .bind(statement_item.operation_amount)
+        .bind(statement_item.currency_code)
+        .bind(statement_item.commission_rate)
+        .bind(statement_item.cashback_amount)
+        .bind(statement_item.balance)
+        .bind(&statement_item.comment)
+        .bind(&statement_item.receipt_id)
+        .bind(&statement_item.invoice_id)
+        .bind(&statement_item.counter_edrpou)
+        .bind(&statement_item.counter_iban)
+        .bind(&statement_item.counter_name)
+        .execute(pool)
+        .await;
+
+    #[cfg(all(feature = "postgres", feature = "offline"))]
+    let result = sqlx::query("INSERT INTO statement_items (id, account_id, time, description, mcc, original_mcc, hold, amount, operation_amount, currency_code, commission_rate, cashback_amount, balance, comment, receipt_id, invoice_id, counter_edrpou, counter_iban, counter_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) ON CONFLICT (id) DO NOTHING")
+        .bind(&statement_item.id)
+        .bind(&statement_item.account_id)
+        .bind(statement_item.time)
+        .bind(&statement_item.description)
+        .bind(statement_item.mcc as i32)
+        .bind(statement_item.original_mcc as i32)
+        .bind(statement_item.hold)
+        .bind(statement_item.amount)
+        .bind(statement_item.operation_amount)
+        .bind(statement_item.currency_code as i32)
+        .bind(statement_item.commission_rate)
+        .bind(statement_item.cashback_amount)
+        .bind(statement_item.balance)
+        .bind(&statement_item.comment)
+        .bind(&statement_item.receipt_id)
+        .bind(&statement_item.invoice_id)
+        .bind(&statement_item.counter_edrpou)
+        .bind(&statement_item.counter_iban)
+        .bind(&statement_item.counter_name)
+        .execute(pool)
+        .await;
+
+    result.map(|_| ())
 }

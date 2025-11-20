@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod crud;
 mod db;
+mod db_types;
 mod logger;
 mod models;
 mod schema;
@@ -10,33 +11,26 @@ use reqwest::blocking::Client;
 use serde_with::chrono::NaiveDateTime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn main() {
+#[tokio::main]
+async fn main() {
     logger::initialize_logging();
     config::load_env();
     let time_floor = utils::datetime_from(config::get_sync_start_timestamp());
-    let runtime = db::get_tokio_runtime();
-    let connection_pool =
-        runtime.block_on(async { db::initialize(&config::get_database_url()).await });
-    let executor = db::DBExecutor {
-        pool: connection_pool,
-        runtime,
-    };
+    let pool = db::initialize(&config::get_database_url()).await;
     let client = Client::new();
     let tokens = config::get_multiple_monobank_tokens();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as u32;
-    for token_index in 0..tokens.len() {
-        let token = &tokens[token_index];
+    for token in &tokens {
         let raw_client_info = api::fetch_client_info(&client, token).unwrap();
         let client_info = models::ClientInfo {
             client_id: raw_client_info.client_id,
             name: raw_client_info.name,
             token: token.to_string(),
         };
-        let client_info_clone = client_info.clone();
-        let _ = executor.execute(move |p| crud::insert_client_info(p.clone(), client_info_clone));
+        let _ = crud::insert_client_info(&pool, client_info.clone()).await;
         let relevant_accounts = raw_client_info
             .accounts
             .clone()
@@ -46,8 +40,8 @@ fn main() {
             .collect::<Vec<schema::Account>>();
         for raw_account in relevant_accounts {
             let account_id = raw_account.id.clone();
-            let maybe_success_time = executor
-                .execute(move |p| crud::get_last_sync_time(p.clone(), account_id))
+            let maybe_success_time = crud::get_last_sync_time(&pool, account_id)
+                .await
                 .expect("Failed to get last sync time");
             let last_sync_time: NaiveDateTime;
             if let Some(lst) = maybe_success_time {
@@ -67,8 +61,7 @@ fn main() {
                 cashback_type: raw_account.cashback_type,
                 last_sync_at: Some(last_sync_time),
             };
-            let account_clone = account.clone();
-            let _ = executor.execute(move |p| crud::insert_account(p.clone(), account_clone));
+            let _ = crud::insert_account(&pool, account.clone()).await;
             let card_statements = api::FetchingStatementsIterator {
                 client: &client,
                 token: token.to_string(),
@@ -84,18 +77,12 @@ fn main() {
                     Ok((timestamp, s)) => {
                         raw_statements = s;
                         let last_success = utils::datetime_from(timestamp);
-                        let account_id = account.id.clone();
-                        let _ = executor.execute(move |p| {
-                            crud::update_last_sync_time(p.clone(), account_id, Some(last_success))
-                        });
+                        let _ = crud::update_last_sync_time(&pool, account.id.clone(), Some(last_success)).await;
                     }
                     Err((timestamp, e)) => {
                         tracing::error!("Error: {:?}", e);
                         let last_success = utils::datetime_from(timestamp);
-                        let account_id = account.id.clone();
-                        let _ = executor.execute(move |p| {
-                            crud::update_last_sync_time(p.clone(), account_id, Some(last_success))
-                        });
+                        let _ = crud::update_last_sync_time(&pool, account.id.clone(), Some(last_success)).await;
                         break;
                     }
                 }
@@ -124,8 +111,7 @@ fn main() {
                     })
                     .collect::<Vec<models::StatementItem>>();
                 for statement_item in statements {
-                    let _ = executor
-                        .execute(move |p| crud::insert_statement_item(p.clone(), statement_item));
+                    let _ = crud::insert_statement_item(&pool, statement_item).await;
                 }
             }
         }

@@ -19,6 +19,7 @@ pub struct Account {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct Jar {
     pub id: String,
     pub title: String,
@@ -59,5 +60,6 @@ pub struct ClientInfo {
     pub client_id: String,
     pub name: String,
     pub accounts: Vec<Account>,
+    #[allow(dead_code)]
     jars: Option<Vec<Jar>>,
 }
