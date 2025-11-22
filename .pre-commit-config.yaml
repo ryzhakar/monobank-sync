@@ -24,7 +24,7 @@ repos:
       hooks:
           - id: generate-sqlx-data
             name: Generate SQLx offline data
-            entry: scripts/generate-sqlx-data.sh
+            entry: just prepare-offline
             language: system
             pass_filenames: false
             files: ^(src/.*\.rs|migrations/.*/.*\.sql|Cargo\.(toml|lock))$
