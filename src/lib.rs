@@ -40,4 +40,3 @@ pub mod utils;
 
 pub use db::initialize;
 pub use db_types::DatabasePool;
-

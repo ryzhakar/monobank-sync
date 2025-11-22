@@ -7,4 +7,3 @@ use sqlx::SqlitePool;
 pub type DatabasePool = PgPool;
 #[cfg(feature = "sqlite")]
 pub type DatabasePool = SqlitePool;
-

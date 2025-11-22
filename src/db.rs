@@ -15,13 +15,13 @@ pub async fn initialize(database_url: &str) -> DatabasePool {
         .await
         .expect("Failed to connect to SQLite database");
 
-    #[cfg(all(feature = "postgres", feature = "online"))]
+    #[cfg(feature = "postgres")]
     sqlx::migrate!("./migrations/postgres")
         .run(&pool)
         .await
         .expect("Failed to migrate database");
 
-    #[cfg(all(feature = "sqlite", feature = "online"))]
+    #[cfg(feature = "sqlite")]
     sqlx::migrate!("./migrations/sqlite")
         .run(&pool)
         .await

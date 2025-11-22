@@ -20,3 +20,12 @@ repos:
           - id: yamlfmt
             name: format YAML
             args: [--mapping, '4', --sequence, '6', --offset, '4']
+    - repo: local
+      hooks:
+          - id: generate-sqlx-data
+            name: Generate SQLx offline data
+            entry: scripts/generate-sqlx-data.sh
+            language: system
+            pass_filenames: false
+            files: ^(src/.*\.rs|migrations/.*/.*\.sql|Cargo\.(toml|lock))$
+            stages: [commit]

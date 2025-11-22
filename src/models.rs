@@ -1,7 +1,6 @@
 use serde_with::chrono::NaiveDateTime;
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "online", derive(sqlx::FromRow))]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct LastSync {
     pub last_sync_at: Option<NaiveDateTime>,
 }

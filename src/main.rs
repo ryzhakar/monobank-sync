@@ -77,12 +77,22 @@ async fn main() {
                     Ok((timestamp, s)) => {
                         raw_statements = s;
                         let last_success = utils::datetime_from(timestamp);
-                        let _ = crud::update_last_sync_time(&pool, account.id.clone(), Some(last_success)).await;
+                        let _ = crud::update_last_sync_time(
+                            &pool,
+                            account.id.clone(),
+                            Some(last_success),
+                        )
+                        .await;
                     }
                     Err((timestamp, e)) => {
                         tracing::error!("Error: {:?}", e);
                         let last_success = utils::datetime_from(timestamp);
-                        let _ = crud::update_last_sync_time(&pool, account.id.clone(), Some(last_success)).await;
+                        let _ = crud::update_last_sync_time(
+                            &pool,
+                            account.id.clone(),
+                            Some(last_success),
+                        )
+                        .await;
                         break;
                     }
                 }

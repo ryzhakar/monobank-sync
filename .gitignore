@@ -7,7 +7,6 @@
 .env.*.local
 /dist
 /target
-.sqlx/
 *.log
 .DS_Store
 Thumbs.db

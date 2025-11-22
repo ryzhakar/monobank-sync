@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO client_info (client_id, name, token) VALUES ($1, $2, $3) ON CONFLICT (client_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cb555e6190cda0f571a7360399644cca836bfcb99bf3c2919a81686eda95bb50"
+}
