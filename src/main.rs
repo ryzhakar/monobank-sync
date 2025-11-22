@@ -101,7 +101,7 @@ async fn main() {
                     .map(|s| models::StatementItem {
                         id: s.id,
                         account_id: account.id.clone(),
-                        time: s.time.naive_utc(),
+                        time: utils::datetime_from_utc_to_tz(s.time),
                         description: s.description,
                         mcc: s.mcc,
                         original_mcc: s.original_mcc,

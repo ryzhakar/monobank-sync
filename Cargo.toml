@@ -23,6 +23,7 @@ tracing-subscriber = "0.3.18"
 rand = "0.8.5"
 serde_with = { version = "3.8.1", features = ["chrono"] }
 tokio = { version = "1.37.0", features = ["full"] }
+chrono-tz = "0.10"
 
 # The profile that 'dist' will build with
 [profile.dist]

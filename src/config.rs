@@ -1,9 +1,17 @@
+use chrono_tz::Tz;
 use dotenv::dotenv;
 use serde_with::chrono::{Datelike, TimeZone, Utc};
 use std::env;
 
 pub fn load_env() {
     dotenv().ok();
+}
+
+pub fn get_timezone() -> Tz {
+    let tz_str = env::var("TIMEZONE").unwrap_or_else(|_| "Europe/Kyiv".to_string());
+    tz_str
+        .parse()
+        .unwrap_or_else(|_| panic!("Invalid timezone: {}", tz_str))
 }
 
 pub fn get_multiple_monobank_tokens() -> Vec<String> {
