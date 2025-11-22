@@ -1,12 +1,11 @@
 ---
-name: CI/CD
+name: CI
 
 on:
     push:
         branches:
             - main
     pull_request:
-        types: [opened, synchronize, reopened, closed]
         branches:
             - main
 
@@ -16,11 +15,9 @@ env:
     SQLX_OFFLINE: true
 
 jobs:
-    # Validate code quality on every push and PR update
     validate:
         name: Lint and Test
         runs-on: ubuntu-latest
-        if: github.event.action != 'closed'
         steps:
             - name: Checkout code
               uses: actions/checkout@v5
@@ -39,11 +36,11 @@ jobs:
             - name: Run tests
               run: cargo test
 
-    # Create/update release PR with version bump (runs after push to main)
     create-release-pr:
         name: Create Release PR
         runs-on: ubuntu-latest
         needs: [validate]
+        # Only run on push to main, not on PRs
         if: |
             github.event_name == 'push' &&
             github.ref == 'refs/heads/main' &&
@@ -66,32 +63,6 @@ jobs:
               uses: release-plz/action@v0.5
               with:
                   command: release-pr
-              env:
-                  GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
-                  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-    # Publish to crates.io and create git tag (runs when release PR is merged)
-    publish-and-tag:
-        name: Publish to crates.io
-        runs-on: ubuntu-latest
-        if: |
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.merged == true &&
-            github.repository_owner == 'ryzhakar'
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-            - name: Publish crate and create tag
-              uses: release-plz/action@v0.5
-              with:
-                  command: release
               env:
                   GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
                   CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
