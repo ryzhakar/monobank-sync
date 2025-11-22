@@ -5,6 +5,7 @@ edition = "2021"
 description = "Synchronize data from Monobank's Personal API into a local database"
 license = "AGPL-3.0"
 repository = "https://github.com/ryzhakar/monobank-sync"
+rust-version = "1.88"
 
 [features]
 default = ["postgres"]
