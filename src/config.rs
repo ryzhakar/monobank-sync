@@ -9,25 +9,24 @@ pub fn load_env() {
 
 pub fn get_timezone() -> Tz {
     let tz_str = env::var("TIMEZONE").unwrap_or_else(|_| "Europe/Kyiv".to_string());
-    tz_str
-        .parse()
-        .unwrap_or_else(|_| panic!("Invalid timezone: {}", tz_str))
+    tz_str.parse().unwrap_or_else(|_| {
+        tracing::warn!("Invalid timezone '{}', falling back to Europe/Kyiv", tz_str);
+        "Europe/Kyiv".parse().expect("Default timezone is valid")
+    })
+}
+
+fn parse_comma_separated(value: &str) -> Vec<String> {
+    value.split(',').map(|s| s.trim().to_string()).collect()
 }
 
 pub fn get_multiple_monobank_tokens() -> Vec<String> {
     let raw_tokens = env::var("MULTIPLE_MONOBANK_TOKENS").expect("MONOBANK_TOKEN must be set");
-    raw_tokens
-        .split(',')
-        .map(|section| section.to_string())
-        .collect()
+    parse_comma_separated(&raw_tokens)
 }
 
 pub fn get_all_allowed_card_types() -> Vec<String> {
-    let raw_types = env::var("ALLOWED_CARD_TYPES").unwrap_or("black,white".to_string());
-    raw_types
-        .split(',')
-        .map(|section| section.to_string())
-        .collect()
+    let raw_types = env::var("ALLOWED_CARD_TYPES").unwrap_or_else(|_| "black,white".to_string());
+    parse_comma_separated(&raw_types)
 }
 
 pub fn get_database_url() -> String {

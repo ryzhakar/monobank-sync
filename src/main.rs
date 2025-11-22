@@ -8,7 +8,6 @@ mod models;
 mod schema;
 mod utils;
 use reqwest::blocking::Client;
-use serde_with::chrono::NaiveDateTime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[tokio::main]
@@ -21,16 +20,24 @@ async fn main() {
     let tokens = config::get_multiple_monobank_tokens();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("System time is before UNIX epoch")
         .as_secs() as u32;
     for token in &tokens {
-        let raw_client_info = api::fetch_client_info(&client, token).unwrap();
+        let raw_client_info = match api::fetch_client_info(&client, token) {
+            Ok(info) => info,
+            Err(e) => {
+                tracing::error!("Failed to fetch client info: {:?}", e);
+                continue;
+            }
+        };
         let client_info = models::ClientInfo {
             client_id: raw_client_info.client_id,
             name: raw_client_info.name,
             token: token.to_string(),
         };
-        let _ = crud::insert_client_info(&pool, client_info.clone()).await;
+        if let Err(e) = crud::insert_client_info(&pool, client_info.clone()).await {
+            tracing::warn!("Failed to insert client info: {:?}", e);
+        }
         let relevant_accounts = raw_client_info
             .accounts
             .clone()
@@ -40,15 +47,11 @@ async fn main() {
             .collect::<Vec<schema::Account>>();
         for raw_account in relevant_accounts {
             let account_id = raw_account.id.clone();
-            let maybe_success_time = crud::get_last_sync_time(&pool, account_id)
+            let last_sync_time = crud::get_last_sync_time(&pool, account_id.clone())
                 .await
-                .expect("Failed to get last sync time");
-            let last_sync_time: NaiveDateTime;
-            if let Some(lst) = maybe_success_time {
-                last_sync_time = lst;
-            } else {
-                last_sync_time = time_floor;
-            }
+                .ok()
+                .flatten()
+                .unwrap_or(time_floor);
             let account = models::Account {
                 id: raw_account.id,
                 client_id: client_info.client_id.clone(),
@@ -61,7 +64,9 @@ async fn main() {
                 cashback_type: raw_account.cashback_type,
                 last_sync_at: Some(last_sync_time),
             };
-            let _ = crud::insert_account(&pool, account.clone()).await;
+            if let Err(e) = crud::insert_account(&pool, account.clone()).await {
+                tracing::warn!("Failed to insert account {}: {:?}", account.id, e);
+            }
             let card_statements = api::FetchingStatementsIterator {
                 client: &client,
                 token: token.to_string(),
@@ -77,22 +82,28 @@ async fn main() {
                     Ok((timestamp, s)) => {
                         raw_statements = s;
                         let last_success = utils::datetime_from(timestamp);
-                        let _ = crud::update_last_sync_time(
+                        if let Err(e) = crud::update_last_sync_time(
                             &pool,
                             account.id.clone(),
                             Some(last_success),
                         )
-                        .await;
+                        .await
+                        {
+                            tracing::warn!("Failed to update sync time: {:?}", e);
+                        }
                     }
                     Err((timestamp, e)) => {
-                        tracing::error!("Error: {:?}", e);
+                        tracing::error!("Error fetching statements: {:?}", e);
                         let last_success = utils::datetime_from(timestamp);
-                        let _ = crud::update_last_sync_time(
+                        if let Err(e) = crud::update_last_sync_time(
                             &pool,
                             account.id.clone(),
                             Some(last_success),
                         )
-                        .await;
+                        .await
+                        {
+                            tracing::warn!("Failed to update sync time after error: {:?}", e);
+                        }
                         break;
                     }
                 }
@@ -121,7 +132,9 @@ async fn main() {
                     })
                     .collect::<Vec<models::StatementItem>>();
                 for statement_item in statements {
-                    let _ = crud::insert_statement_item(&pool, statement_item).await;
+                    if let Err(e) = crud::insert_statement_item(&pool, statement_item).await {
+                        tracing::warn!("Failed to insert statement: {:?}", e);
+                    }
                 }
             }
         }
