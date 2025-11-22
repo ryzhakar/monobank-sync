@@ -20,6 +20,7 @@ repos:
           - id: yamlfmt
             name: format YAML
             args: [--mapping, '4', --sequence, '6', --offset, '4']
+            exclude: ^\.github/workflows/release\.yml$
     - repo: local
       hooks:
           - id: generate-sqlx-data
