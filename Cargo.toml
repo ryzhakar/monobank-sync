@@ -2,6 +2,9 @@
 name = "monobank-sync-rust"
 version = "0.2.0"
 edition = "2021"
+description = "Synchronize data from Monobank's Personal API into a local database"
+license = "AGPL-3.0"
+repository = "https://github.com/ryzhakar/monobank-sync"
 
 [features]
 default = ["postgres"]
@@ -19,3 +22,8 @@ tracing-subscriber = "0.3.18"
 rand = "0.8.5"
 serde_with = { version = "3.8.1", features = ["chrono"] }
 tokio = { version = "1.37.0", features = ["full"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
